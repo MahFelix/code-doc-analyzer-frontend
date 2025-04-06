@@ -1,16 +1,14 @@
-import React, { useState } from 'react';
-import { 
-  Card,
-  TextArea,
-  Button,
-  ResultContainer,
-  Loader
-} from './styles';
+import React, { useState, useEffect, useRef } from 'react';
+import { Card, TextArea, Button, ResultContainer, Loader } from './styles';
 import { generateArchitectureDiagram } from '../services/geminiService';
+
+const DEBOUNCE_DELAY = 200;
 
 const ArchitectureDiagram = ({ lastResult, onNewResult }) => {
   const [projectStructure, setProjectStructure] = useState('');
   const [loading, setLoading] = useState(false);
+  const [hasTyped, setHasTyped] = useState(false);
+  const timerRef = useRef(null);
 
   const handleGenerateDiagram = async () => {
     setLoading(true);
@@ -24,30 +22,36 @@ const ArchitectureDiagram = ({ lastResult, onNewResult }) => {
     setLoading(false);
   };
 
+  useEffect(() => {
+    if (!hasTyped) return;
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      handleGenerateDiagram();
+    }, DEBOUNCE_DELAY);
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [projectStructure, hasTyped]);
+
+  const handleChange = (e) => {
+    setProjectStructure(e.target.value);
+    if (!hasTyped && e.target.value.trim().length > 0) {
+      setHasTyped(true);
+    }
+  };
+
   return (
     <Card>
       <h2>Gerador de Diagrama de Arquitetura</h2>
       <p>Descreva a estrutura do projeto para gerar um diagrama arquitetural</p>
-      
       <TextArea
         placeholder="Descreva os componentes, tecnologias e fluxos do seu sistema..."
         value={projectStructure}
-        onChange={(e) => setProjectStructure(e.target.value)}
+        onChange={handleChange}
       />
-      
-      <Button 
-        onClick={handleGenerateDiagram} 
-        disabled={loading || !projectStructure.trim()}
-      >
-        {loading ? (
-          <>
-            <Loader /> Gerando...
-          </>
-        ) : (
-          '🏗️ Gerar Diagrama'
-        )}
+      <Button onClick={handleGenerateDiagram} disabled={loading || !projectStructure.trim()}>
+        {loading ? (<><Loader /> Gerando...</>) : ('🏗️ Gerar Diagrama')}
       </Button>
-      
       {lastResult && (
         <ResultContainer>
           <h3>📐 Diagrama de Arquitetura</h3>

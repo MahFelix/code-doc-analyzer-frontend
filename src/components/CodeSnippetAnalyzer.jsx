@@ -1,16 +1,14 @@
-import React, { useState } from 'react';
-import { 
-  Card,
-  TextArea,
-  Button,
-  ResultContainer,
-  Loader
-} from './styles';
+import React, { useState, useEffect, useRef } from 'react';
+import { Card, TextArea, Button, ResultContainer, Loader } from './styles';
 import { analyzeCodeSnippet } from '../services/geminiService';
+
+const DEBOUNCE_DELAY = 200; 
 
 const CodeSnippetAnalyzer = ({ lastResult, onNewResult }) => {
   const [codeSnippet, setCodeSnippet] = useState('');
   const [loading, setLoading] = useState(false);
+  const [hasTyped, setHasTyped] = useState(false);
+  const timerRef = useRef(null);
 
   const handleAnalyze = async () => {
     setLoading(true);
@@ -24,33 +22,37 @@ const CodeSnippetAnalyzer = ({ lastResult, onNewResult }) => {
     setLoading(false);
   };
 
+  useEffect(() => {
+    if (!hasTyped) return;
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      handleAnalyze();
+    }, DEBOUNCE_DELAY);
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [codeSnippet, hasTyped]);
+
+  const handleChange = (e) => {
+    setCodeSnippet(e.target.value);
+    if (!hasTyped && e.target.value.trim().length > 0) {
+      setHasTyped(true);
+    }
+  };
+
   return (
     <Card>
       <h2>Analisador de Código</h2>
       <p>Cole um trecho de código para receber uma análise detalhada</p>
-      
       <TextArea
         placeholder="// Cole seu código aqui...\n// Exemplo: function minhaFuncao() { ... }"
         value={codeSnippet}
-        onChange={(e) => setCodeSnippet(e.target.value)}
+        onChange={handleChange}
       />
-      
       <Button onClick={handleAnalyze} disabled={loading || !codeSnippet.trim()}>
-        {loading ? (
-          <>
-            <Loader /> Analisando...
-          </>
-        ) : (
-          '🔍 Analisar Código'
-        )}
+        {loading ? <Loader /> : '🔍Analisar Código'}
       </Button>
-      
-      {lastResult && (
-        <ResultContainer>
-          <h3>📋 Resultado da Análise</h3>
-          <pre>{lastResult}</pre>
-        </ResultContainer>
-      )}
+      {lastResult && <ResultContainer>{lastResult}</ResultContainer>}
     </Card>
   );
 };
